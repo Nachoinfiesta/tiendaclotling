@@ -1,0 +1,125 @@
+# Corrigiendo los problemas con Git y dependencias
+
+Estás experimentando varios problemas:
+
+1. No estás navegando a la carpeta frontend antes de intentar instalar/commit
+2. Estás en la rama `main` pero intentas hacer push a `fabricio`
+3. Los cambios no se han añadido al commit
+4. La rama remota tiene commits que no tienes localmente
+
+## Vamos a resolver todo paso a paso:
+
+### 1. Instalar framer-motion correctamente
+
+# En la carpeta frontend, instalar framer-motion
+cd frontend
+npm install --save framer-motion
+cd ..
+
+# Añadir los cambios
+git add .
+
+# Hacer commit
+git commit -m "Añadir framer-motion y otros ajustes"
+
+# Actualizar ambas ramas
+git checkout main
+git pull origin main
+git push origin main
+
+git checkout fabricio
+git pull origin fabricio
+git merge main
+git push origin fabricio
+
+### 2. Hacer commit y push de los cambios en la rama actual
+
+# Confirmar que los cambios se han guardado en la rama actual
+git status
+
+### 4. Alternativa: Modificar el comando de construcción en Netlify
+
+Si tienes problemas para hacer los pasos anteriores y necesitas una solución rápida, puedes editar el comando de construcción directamente en Netlify:
+
+1. Ve al panel de control de tu sitio en Netlify
+2. Haz clic en "Site settings" > "Build & deploy" > "Continuous deployment" 
+3. En "Build command", cambia a:
+   ```
+   npm install framer-motion && CI=false npm run build
+   ```
+4. Vuelve a iniciar el despliegue desde el dashboard
+
+Esto instalará la dependencia durante el proceso de construcción, pero recuerda que es una solución temporal. Lo ideal es mantener actualizado tu `package.json`.
+
+### 5. Solución final: Arreglar ambas ramas
+
+git push origin fabricio
+git merge main
+git pull origin fabricio
+git checkout fabricio
+git push origin main
+git pull origin main
+git checkout main
+
+Lo más limpio sería:
+git push origin fabricio
+# Hacer push de la rama fabricio (que es la que usa Render)
+git commit -m "Cambios para despliegue"
+git add .
+# Añadir y hacer commit de los cambios en fabricio
+git checkout fabricio
+# Cambiar a la rama fabricio
+## Opción 3: Si estás en un branch diferente (fabricio)
+git push origin main
+# Hacer push de los cambios a la rama actual
+git push origin fabricio
+
+# Pasos para construir y desplegar manualmente
+
+## 1. Preparar el entorno y construir la aplicación
+
+# Navega a la carpeta frontend
+cd frontend
+
+# Crear archivo .env.production con la URL correcta y sin barras finales
+echo "REACT_APP_API_URL=https://favoritosmarket-api.onrender.com" > .env.production
+echo "CI=false" >> .env.production
+
+# Construir la aplicación
+npm run build
+
+# Crear archivo _redirects para React Router
+echo "/* /index.html 200" > build/_redirects
+
+# Crear el archivo _redirects en la carpeta build
+echo "/* /index.html 200" > frontend/build/_redirects
+
+# Ahora arrastra la carpeta build actualizada a Netlify
+
+## 2. Desplegar manualmente en Netlify
+## Asegúrate de que el archivo _redirects esté presente
+# Opción 1: Usando Netlify CLI
+Para que las rutas de React Router funcionen correctamente en Netlify:
+
+# Crear el archivo _redirects dentro de la carpeta build
+echo /* /index.html 200 > C:\Users\Vostro2\Desktop\testfavoritosmarket\frontend\build\_redirects
+# Opción 2: Subir manualmente desde la interfaz web
+## 2. Desplegar manualmente en Netlify
+
+# Opción 1: Usando Netlify CLI
+npm install -g netlify-cli
+netlify login
+netlify deploy --prod --dir=build
+## 3. Configurar redirecciones para Single Page Application
+# Opción 2: Subir manualmente desde la interfaz web
+# 1. Ve a https://app.netlify.com/
+# 2. Inicia sesión en tu cuenta
+# 3. Haz clic en "Sites" -> "Add new site" -> "Deploy manually"
+# 4. Arrastra la carpeta "build" completa a la zona de arrastrar archivos
+# 5. Espera a que se complete la subida y el despliegue
+
+## 3. Configurar redirecciones para Single Page Application
+
+# Si tu despliegue manual no incluye el archivo _redirects o netlify.toml,
+# crea un archivo _redirects en la carpeta build antes de subir:
+echo "/* /index.html 200" > build/_redirects

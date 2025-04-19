@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test API Connection</title>
+</head>
+<body>
+  <h1>Test API Connection</h1>
+  <div id="result">Checking connection...</div>
+  <button onclick="testConnection()">Test Again</button>
+
+  <script>
+    function testConnection() {
+      const apiUrl = 'https://favoritosmarket-api.onrender.com';
+      document.getElementById('result').innerHTML = 'Testing connection...';
+      
+      fetch(`${apiUrl}/`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          document.getElementById('result').innerHTML = 
+            `<p style="color:green">✅ Conexión exitosa!</p>
+             <pre>${JSON.stringify(data, null, 2)}</pre>`;
+        })
+        .catch(error => {
+          document.getElementById('result').innerHTML = 
+            `<p style="color:red">❌ Error de conexión: ${error.message}</p>`;
+        });
+    }
+    
+    // Test automatically on page load
+    testConnection();
+  </script>
+</body>
+</html>

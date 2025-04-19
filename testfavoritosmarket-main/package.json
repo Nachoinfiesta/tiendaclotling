@@ -1,0 +1,19 @@
+{
+  "name": "testfavoritosmarket",
+  "version": "1.0.0",
+  "description": "Aplicación de mercado de favoritos",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "install-client": "cd frontend && npm install",
+    "install-server": "cd backend && npm install",
+    "install": "npm run install-server && npm run install-client",
+    "build": "CI=false cd frontend && npm install --legacy-peer-deps && npm run build",
+    "start": "cd backend && node index.js",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
