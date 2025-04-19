@@ -2,8 +2,12 @@ services:
   - type: web
     name: node-backend-market
     runtime: node
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && node index.js
+    buildCommand: |
+      cd /opt/render/project/src/backend
+      npm install
+    startCommand: |
+      cd /opt/render/project/src/backend
+      node index.js
     envVars:
       - key: NODE_ENV
         value: production
