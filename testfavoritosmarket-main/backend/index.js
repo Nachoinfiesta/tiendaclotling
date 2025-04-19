@@ -1,13 +1,86 @@
 require('dotenv').config();
-const jwtSecret = process.env.JWT_SECRET;
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const cookieParser = require('cookie-parser'); // Importar cookie-parser
+const cookieParser = require('cookie-parser');
+const { Pool } = require('pg'); // Usaremos pg directamente para PostgreSQL
+
+// Inicializar Express
 const app = express();
-const pool = require('./db'); // Importar el archivo db.js
-const favoriteRoutes = require('./routes/favoriteRoutes'); // Usar solo esta versión
+
+// ===================== CONFIGURACIÓN CRÍTICA PARA RENDER =====================
+// Validar variables de entorno obligatorias
+const requiredEnvVars = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+requiredEnvVars.forEach(env => {
+  if (!process.env[env]) {
+    console.error(`❌ Error: La variable ${env} no está configurada`);
+    process.exit(1);
+  }
+});
+
+// ===================== CONFIGURACIÓN DE LA BASE DE DATOS =====================
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT || 5432,
+  ssl: {
+    rejectUnauthorized: false // Necesario para conexiones SSL con ElephantSQL/Render
+  }
+});
+
+// Verificar conexión a la base de datos
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('❌ Error al conectar a PostgreSQL:', err.stack);
+  } else {
+    console.log('✅ Conexión exitosa a PostgreSQL. Hora actual:', res.rows[0].now);
+  }
+});
+
+// ===================== CONFIGURACIÓN DE MIDDLEWARES =====================
+// CORS para producción
+const allowedOrigins = [
+  'https://tiendacl.netlify.app', // Tu frontend en Netlify
+  process.env.FRONTEND_URL, // Variable de entorno como respaldo
+  'http://localhost:3000' // Desarrollo local
+].filter(Boolean); // Elimina valores undefined
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Acceso no permitido por CORS'));
+    }
+  },
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
+
+// ===================== CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS =====================
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log(`📂 Directorio 'uploads' creado en: ${uploadsDir}`);
+}
+
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '1d', // Cache de 1 día
+  setHeaders: (res, path) => {
+    if (path.endsWith('.jpg') || path.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+  }
+}));
+
+// ===================== RUTAS =====================
+// Importar rutas
+const favoriteRoutes = require('./routes/favoriteRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -15,86 +88,7 @@ const postRoutes = require('./routes/postRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
-// Verificar si JWT_SECRET está configurado
-if (!process.env.JWT_SECRET) {
-  console.error('Error: JWT_SECRET no está configurado en el archivo .env');
-  process.exit(1); // Detener el servidor si falta JWT_SECRET
-}
-
-// Middlewares
-
-// Define allowed origins based on environment
-const allowedOrigins = [
-  'http://localhost:3000', // Frontend local
-  'https://favoritosmarket.netlify.app', // URL Netlify principal (ejemplo)
-  'https://comforting-halva-178cd0.netlify.app', // Otra URL Netlify (ejemplo)
-  // Puedes añadir la URL específica de tu despliegue de Netlify aquí
-  // o leerla desde una variable de entorno: process.env.FRONTEND_URL
-];
-
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true
-}));
-app.use(express.json());
-app.use(cookieParser()); // Añadir middleware para procesar cookies
-
-// Configurar carpeta de uploads como directorio estático
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Agregar un middleware para depuración de rutas
-app.use((req, res, next) => {
-  console.log(`📝 ${req.method} ${req.url}`);
-  next();
-});
-
-// Depuración específica para la ruta de favoritos
-app.use('/api/favorites', (req, res, next) => {
-  console.log('👉 Interceptando solicitud a /api/favorites');
-  console.log('👉 Headers:', JSON.stringify(req.headers, null, 2));
-  if (req.method === 'POST') {
-    console.log('👉 Cuerpo de la solicitud POST:', req.body);
-  }
-  next();
-});
-
-// Prueba de conexión a la base de datos
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Error al conectar a la base de datos:', err);
-  } else {
-    console.log('Conexión exitosa a la base de datos:', res.rows[0]);
-  }
-});
-
-// Crear directorio para uploads si no existe
-const uploadPath = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-  console.log(`Directorio de uploads creado en: ${uploadPath}`);
-}
-
-// Middleware para servir archivos estáticos con encabezados adecuados
-app.use('/uploads', (req, res, next) => {
-  // Añadir cache control para imágenes
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
-
-// ===================== RUTAS DE LA API =====================
-// Configurar todas las rutas de la API
+// Montar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
@@ -103,42 +97,51 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// ===================== MANEJO DE RUTAS PRINCIPALES =====================
-// Ruta raíz - devolver información sobre la API
+// ===================== MANEJO DE ERRORES =====================
+// Ruta de prueba
+app.get('/api/healthcheck', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    db: process.env.DB_HOST ? 'connected' : 'disconnected'
+  });
+});
+
+// Ruta principal
 app.get('/', (req, res) => {
   res.json({
-    message: 'FavoritosMarket API',
-    // frontend_url: process.env.FRONTEND_URL || 'https://favoritosmarket.netlify.app', // Opcional: mostrar URL frontend
-    api_version: '1.0.0',
-    endpoints: [
-      '/api/auth', 
-      '/api/users', 
-      '/api/posts',
-      '/api/profile', 
-      '/api/favorites', 
-      '/api/categories'
-    ]
+    message: 'API de TiendaCL',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      products: '/api/posts',
+      favorites: '/api/favorites'
+    }
   });
 });
 
-// Capturar todas las demás rutas no manejadas
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Ruta no encontrada',
-    message: 'La ruta solicitada no existe en esta API',
-    suggestion: 'Visita la ruta principal / para más información'
-  });
+// Manejo de errores 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// Importar y ejecutar migraciones
-const runMigrations = require('./db-migrate');
-
-// Migraciones y luego iniciar el servidor
-runMigrations().then(() => {
-  // Use PORT from environment variable provided by Render or default to 5000
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-}).catch(err => {
-  console.error('❌ Error al iniciar la aplicación:', err);
-  process.exit(1); // Salir si las migraciones fallan
+// Middleware de errores
+app.use((err, req, res, next) => {
+  console.error('🔥 Error:', err.stack);
+  res.status(500).json({ error: 'Error interno del servidor' });
 });
+
+// ===================== INICIAR SERVIDOR =====================
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`
+  🚀 Servidor iniciado en puerto ${PORT}
+  🔗 URL local: http://localhost:${PORT}
+  🌍 Entorno: ${process.env.NODE_ENV || 'development'}
+  `);
+});
+
+// Exportar para pruebas
+module.exports = app;
