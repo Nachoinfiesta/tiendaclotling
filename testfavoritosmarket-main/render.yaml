@@ -1,25 +1,26 @@
 services:
   - type: web
-    name: node-backend-market
+    name: marketplace-backend
     runtime: node
     buildCommand: |
       cd /opt/render/project/src/backend
       npm install
+      npm run build  # Si necesitas construcción adicional
     startCommand: |
       cd /opt/render/project/src/backend
-      node index.js
+      node --experimental-specifier-resolution=node index.js
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production
       - key: JWT_SECRET
         generateValue: true
-      - key: DB_HOST
+      - key: DB_URL
         fromDatabase:
-          name: postgres-db-market
+          name: marketplace-db
           property: connectionString
 
   - type: pg
-    name: postgres-db-market
+    name: marketplace-db
     plan: free
