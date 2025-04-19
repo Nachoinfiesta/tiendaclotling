@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Backend for the Marketplace project",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
@@ -11,9 +12,6 @@
     "test": "jest --detectOpenHandles --forceExit --config ./jest.config.js",
     "lint": "eslint ."
   },
-  "keywords": [],
-  "author": "Tu Nombre",
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
